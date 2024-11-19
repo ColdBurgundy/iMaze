@@ -127,22 +127,26 @@ int Board::getRand(int r)
     return dist(gen);
 }
 
-void Board::Draw(bool empty, int curRow, int curCol)
+void Board::Draw(bool showPath, int curRow, int curCol)
 {
     for (int i = 0; i < _size; i++) {
         for (int j = 0; j < _size; j++) {
             if (_wall[i][j])
-                cout << "#"; // 벽
-            else if (!empty && i == curRow && j == curCol)
-                cout << "P"; // 현재 위치
-            else if (!empty && i == endRow && j == endCol)
-                cout << "E"; // 출구
+                std::cout << "#"; // 벽
+            else if (showPath && autoPath[i][j] != -1)
+                std::cout << "."; // 경로 표시
+            else if (i == curRow && j == curCol)
+                std::cout << "P"; // 현재 위치
+            else if (i == endRow && j == endCol)
+                std::cout << "E"; // 출구
             else
-                cout << " "; // 길
+                std::cout << " "; // 길
         }
-        cout << endl;
+        std::cout << std::endl;
     }
 }
+
+
 
 int Board::getEndRow()
 {
@@ -156,8 +160,91 @@ int Board::getEndCol()
 
 int Board::bfs(int row, int col, bool printDis)
 {
-    // BFS 구현
+    // BFS 구현 (단순 샘플, 필요에 따라 수정 가능)
     return 0; // 기본 반환값
+}
+
+void Board::findPath(int startRow, int startCol, int target) {
+    ini_vis();
+    ini_autoPath();
+    queue<Pos> q;
+    q.push(Pos(startRow, startCol));
+    _vis[startRow][startCol] = true;
+
+    map<Pos, Pos> parent;
+    parent[Pos(startRow, startCol)] = Pos(-1, -1);
+
+    while (!q.empty()) {
+        Pos cur = q.front();
+        q.pop();
+
+        if (cur.row == endRow && cur.col == endCol) {
+            std::cout << "Path to the exit found!\n";
+
+            // 역추적하여 최단 경로만 autoPath에 저장
+            Pos backtrack = cur;
+            while (backtrack.row != -1 && backtrack.col != -1) {
+                autoPath[backtrack.row][backtrack.col] = 0;
+                backtrack = parent[backtrack];
+            }
+            return;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            int nextRow = cur.row + dx[i];
+            int nextCol = cur.col + dy[i];
+
+            if (nextRow >= 0 && nextRow < _size && nextCol >= 0 && nextCol < _size &&
+                !_vis[nextRow][nextCol] && !_wall[nextRow][nextCol]) {
+                _vis[nextRow][nextCol] = true;
+                parent[Pos(nextRow, nextCol)] = cur;
+                q.push(Pos(nextRow, nextCol));
+            }
+        }
+    }
+
+    std::cout << "No path to the exit exists!\n";
+}
+
+
+
+
+void Board::ini_vis() {
+    if (!_vis) {
+        _vis = new bool* [_size];
+        for (int i = 0; i < _size; i++) {
+            _vis[i] = new bool[_size];
+        }
+    }
+    for (int i = 0; i < _size; i++) {
+        for (int j = 0; j < _size; j++) {
+            _vis[i][j] = false;
+        }
+    }
+}
+
+void Board::ini_autoPath() {
+    if (!autoPath) {
+        autoPath = new int* [_size];
+        for (int i = 0; i < _size; i++) {
+            autoPath[i] = new int[_size];
+        }
+    }
+    for (int i = 0; i < _size; i++) {
+        for (int j = 0; j < _size; j++) {
+            autoPath[i][j] = -1;
+        }
+    }
+}
+
+void Board::ini_for_search() {
+    ini_vis();      // 방문 초기화
+    ini_autoPath(); // 경로 기록 초기화
+}
+
+void Board::findPathWrapper(int startRow, int startCol) {
+    std::cout << "Starting pathfinding from (" << startRow << ", " << startCol << ")...\n";
+    findPath(startRow, startCol, 0);
 }
 
 Board::~Board()
@@ -171,27 +258,33 @@ Board::~Board()
     delete[] dy;
 }
 
-
 int main() {
     // 미로 크기 설정
-    int mazeSize; // 홀수 크기만 허용
+    int mazeSize;
 
-
-    cout << "미로 사이즈 입력: ";
-    cin >> mazeSize;
-    if (mazeSize % 2 == 0) mazeSize++;
-
+    std::cout << "미로 사이즈 입력 (홀수로 입력해주세요): ";
+    std::cin >> mazeSize;
+    if (mazeSize % 2 == 0) mazeSize++; // 홀수로 보정
 
     // Board 객체 생성 및 초기화
     Board board(mazeSize);
 
     // 최종 미로 출력
-    std::cout << "Final Maze:\n";
+    std::cout << "\n생성된 미로:\n";
     board.Draw(false);
 
     // 출구 위치 출력
     std::cout << "\nMaze Generated Successfully!" << std::endl;
     std::cout << "Exit Position: (" << board.getEndRow() << ", " << board.getEndCol() << ")\n";
+
+    // 경로 탐색 실행
+    std::cout << "\nFinding path from start to exit...\n";
+    board.findPathWrapper(0, 0);
+
+    // 탈출 경로 표시
+    std::cout << "\nPath to the exit:\n";
+    board.Draw(true); // 경로만 표시하는 방식으로 Draw 호출 (필요에 따라 수정)
+
     std::cout << "Press Enter to exit the program...";
     std::cin.ignore();
     std::cin.get();
