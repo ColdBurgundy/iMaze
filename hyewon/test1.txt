@@ -1,0 +1,225 @@
+#include <GL/glut.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <map>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+// 구조체 정의
+struct Vertex {
+    float x, y, z;
+};
+
+struct TexCoord {
+    float u, v;
+};
+
+struct Face {
+    int vertexIndices[3];
+    int texCoordIndices[3];
+};
+
+struct Material {
+    float Kd[3]; // Diffuse Color
+    GLuint textureID; // 텍스처 ID
+};
+
+// 전역 변수
+std::vector<Vertex> vertices;
+std::vector<TexCoord> texCoords;
+std::vector<Face> faces;
+std::map<std::string, Material> materials;
+std::string currentMaterial;
+
+// MTL 파일 로드
+void loadMTL(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open MTL file: " << filename << std::endl;
+        return;
+    }
+
+    std::string line, materialName;
+    while (std::getline(file, line)) {
+        std::istringstream lineStream(line);
+        std::string type;
+        lineStream >> type;
+
+        if (type == "newmtl") {
+            lineStream >> materialName;
+            materials[materialName] = Material();
+            std::cout << "Loaded material: " << materialName << std::endl;
+        }
+        else if (type == "Kd") {
+            lineStream >> materials[materialName].Kd[0] >> materials[materialName].Kd[1] >> materials[materialName].Kd[2];
+            std::cout << "Material diffuse color (Kd): " << materials[materialName].Kd[0] << ", "
+                << materials[materialName].Kd[1] << ", " << materials[materialName].Kd[2] << std::endl;
+        }
+        else if (type == "map_Kd") {
+            std::string token, textureFile;
+            while (lineStream >> token) {
+                if (token.find(".jpg") != std::string::npos || token.find(".png") != std::string::npos) {
+                    textureFile = token;
+                    break;
+                }
+            }
+
+            // 텍스처 로드
+            int width, height, channels;
+            unsigned char* image = stbi_load(textureFile.c_str(), &width, &height, &channels, 0);
+            if (image) {
+                GLuint textureID;
+                glGenTextures(1, &textureID);
+                glBindTexture(GL_TEXTURE_2D, textureID);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+                stbi_image_free(image);
+                materials[materialName].textureID = textureID;
+                std::cout << "Loaded texture: " << textureFile << " (" << width << "x" << height << ")" << std::endl;
+            }
+            else {
+                std::cerr << "Failed to load texture: " << textureFile << std::endl;
+            }
+        }
+    }
+
+    file.close();
+}
+
+// OBJ 파일 로드
+void loadOBJ(const std::string& filename, const std::string& mtlFilePath) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open OBJ file: " << filename << std::endl;
+        exit(1);
+    }
+
+    std::cout << "Loading OBJ file: " << filename << std::endl;
+    loadMTL(mtlFilePath);
+    std::cout << "Loading MTL file: " << mtlFilePath << std::endl;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream lineStream(line);
+        std::string type;
+        lineStream >> type;
+
+        if (type == "v") {
+            Vertex vertex;
+            lineStream >> vertex.x >> vertex.y >> vertex.z;
+            vertices.push_back(vertex);
+        }
+        else if (type == "vt") {
+            TexCoord texCoord;
+            lineStream >> texCoord.u >> texCoord.v;
+            texCoords.push_back(texCoord);
+        }
+        else if (type == "f") {
+            Face face;
+            for (int i = 0; i < 3; ++i) {
+                std::string vertexData;
+                lineStream >> vertexData;
+
+                std::istringstream vertexStream(vertexData);
+                std::string vertexIndexStr, texCoordIndexStr;
+                std::getline(vertexStream, vertexIndexStr, '/');
+                std::getline(vertexStream, texCoordIndexStr, '/');
+
+                face.vertexIndices[i] = std::stoi(vertexIndexStr) - 1;
+                face.texCoordIndices[i] = std::stoi(texCoordIndexStr) - 1;
+            }
+            faces.push_back(face);
+        }
+        else if (type == "usemtl") {
+            lineStream >> currentMaterial;
+            std::cout << "Using material: " << currentMaterial << std::endl;
+        }
+    }
+
+    file.close();
+    std::cout << "Finished loading OBJ file." << std::endl;
+}
+
+// 디스플레이 함수
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glLoadIdentity();
+
+    // 카메라 및 모델 위치 조정
+    glTranslatef(0.0f, 0.0f, -10.0f);
+    glRotatef(30.0f, 1.0f, 0.0f, 0.0f);
+    glScalef(0.1f, 0.1f, 0.1f);
+
+    glBegin(GL_TRIANGLES);
+    for (const auto& face : faces) {
+        Material& material = materials[currentMaterial];
+
+        // 텍스처 또는 기본 색상 적용
+        if (material.textureID > 0) {
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, material.textureID);
+        }
+        else {
+            glDisable(GL_TEXTURE_2D);
+            glColor3fv(material.Kd); // Diffuse Color
+        }
+
+        for (int i = 0; i < 3; ++i) {
+            const TexCoord& texCoord = texCoords[face.texCoordIndices[i]];
+            const Vertex& vertex = vertices[face.vertexIndices[i]];
+
+            if (material.textureID > 0) {
+                glTexCoord2f(texCoord.u, texCoord.v);
+            }
+            glVertex3f(vertex.x, vertex.y, vertex.z);
+        }
+    }
+    glEnd();
+
+    glutSwapBuffers();
+}
+
+// 초기화
+void initOpenGL() {
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    std::cout << "OpenGL initialized." << std::endl;
+}
+
+// 메인 함수
+int main(int argc, char** argv) {
+    std::string objFilePath = R"(C:\Projects\CG_Practice\CG_Practice\Debug\Iphone_seceond_version_finished.obj)";
+    std::string mtlFilePath = R"(C:\Projects\CG_Practice\CG_Practice\Debug\Iphone_seceond_version_finished.mtl)";
+
+    std::cout << "Starting program..." << std::endl;
+
+    // OBJ 로드
+    std::cout << "Loading OBJ file: " << objFilePath << std::endl;
+    loadOBJ(objFilePath, mtlFilePath);
+
+    // GLUT 초기화
+    std::cout << "Initializing GLUT..." << std::endl;
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitWindowSize(800, 600);
+    glutCreateWindow("OpenGL OBJ Viewer with MTL");
+    std::cout << "GLUT window created." << std::endl;
+
+    // OpenGL 초기화
+    initOpenGL();
+
+    // 디스플레이 콜백
+    glutDisplayFunc(display);
+    std::cout << "Starting GLUT main loop..." << std::endl;
+    glutMainLoop();
+
+    return 0;
+}
