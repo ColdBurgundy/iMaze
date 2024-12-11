@@ -19,6 +19,7 @@ struct Face {
 
 class ObjLoader {
 public:
+
     // 생성자
     ObjLoader();
 
@@ -43,6 +44,11 @@ private:
     // 미로 내 위치
     float mazeX, mazeY;
     float rotationX, rotationY, rotationZ;
+
+
+    float minX = 1e9, minY = 1e9, minZ = 1e9;
+    float maxX = -1e9, maxY = -1e9, maxZ = -1e9;
+    float maxDimension;
 };
 
 #endif

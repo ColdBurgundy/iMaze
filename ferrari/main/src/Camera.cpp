@@ -5,7 +5,7 @@
 
 #define PI 3.141592
 
-Camera::Camera() : cameraX(2.0f), cameraY(-1.0f), cameraZ(0.0f), angleX(0.0f), angleY(90.0f) {
+Camera::Camera() : cameraX(0.0f), cameraY(0.0f), cameraZ(0.3f), angleX(0.0f), angleY(90.0f) {
     focusX = sin(angleY * (PI / 180)) * cos(angleX * (PI / 180));
     focusY = sin(angleY * (PI / 180)) * sin(angleX * (PI / 180));
     focusZ = cos(angleY * (PI / 180));
@@ -21,35 +21,35 @@ void Camera::updateCameraDirection(int x, int y) {
     angleX -= deltaX * 0.1f;
     angleY += deltaY * 0.1f;
 
+    // 피치 제한 (카메라의 상하 각도 제한)
     if (angleY > 170.0f) angleY = 170.0f;
     if (angleY < 10.0f) angleY = 10.0f;
 
-
-    std::cout << "angleX: " << angleX << ", angleY: " << angleY << ", CamX: " << cameraX << ", CamY: " << cameraY << std::endl;
-
-    updatePosition(0);
-    glutWarpPointer(lastX, lastY);
-}
-
-void Camera::updatePosition(unsigned char key) {
-
+    // 카메라 방향 갱신
     focusX = sin(angleY * (PI / 180)) * cos(angleX * (PI / 180));
     focusY = sin(angleY * (PI / 180)) * sin(angleX * (PI / 180));
     focusZ = cos(angleY * (PI / 180));
 
-    // 카메라의 "right" 벡터
+    std::cout << "angleX: " << angleX << ", angleY: " << angleY << ", CamX: " << cameraX << ", CamY: " << cameraY << std::endl;
+
+    glutWarpPointer(lastX, lastY);
+    glutPostRedisplay(); // 화면 갱신 요청
+}
+
+void Camera::updatePosition(unsigned char key) {
+    // "right" 벡터
     float rightX = cos((angleX + 90) * (PI / 180));
     float rightY = sin((angleX + 90) * (PI / 180));
 
-    // "forward" 벡터 (카메라가 바라보는 방향)
+    // "forward" 벡터
     float forwardX = cos(angleX * (PI / 180));
     float forwardY = sin(angleX * (PI / 180));
 
-
     const float step = 0.1f;
+
+    // 플레이어 위치를 기준으로 이동
     float newX = cameraX;
     float newY = cameraY;
-
     if (key == 'w') {
         newX += forwardX * step;
         newY += forwardY * step;

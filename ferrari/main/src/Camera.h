@@ -19,6 +19,7 @@ public:
     float getFocusX() const { return focusX; }
     float getFocusY() const { return focusY; }
     float getFocusZ() const { return focusZ; }
+    float getAngleX() const { return angleX; } // 카메라 X축 회전 각도 반환
 };
 
 #endif // CAMERA_H

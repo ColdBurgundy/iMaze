@@ -299,6 +299,11 @@ int Board::getCell(int x, int y) const {
     return _wall[y][x];
 }
 
+int** Board::getAutoPath() const {
+    return autoPath;
+}
+
+
 Board::~Board()
 {
     for (int i = 0; i < _size; i++) {

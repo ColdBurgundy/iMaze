@@ -58,8 +58,6 @@ private:
 
 	int* dx, * dy;
 	int _size, endRow, endCol, _count;
-	bool** _wall, ** _vis;
-	int** autoPath;
 	map<Pos, bool> _visRoad;
 	map<Pos, int> _minCost;
 	map<Pos, vector<EdgeInfo>> _edge;
@@ -77,6 +75,11 @@ private:
 	int getRand(int r = RandomMod);
 
 public:
+	int** autoPath;
+	int** getAutoPath() const;
+
+	bool** _wall, ** _vis;
+
 	Board(int size, int tmp);
 	int bfs(int row, int col);
 	void Draw(bool empty, int curRow = 0, int curCol = 0);
