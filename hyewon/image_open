@@ -1,0 +1,114 @@
+#include <GL/glut.h>
+#include <iostream>
+#include <fstream>
+
+// 이미지 정보
+int width, height;
+unsigned char* imageData;
+
+// BMP 데이터 색상 순서를 변환하는 함수
+void convertBGRAToRGBA(unsigned char* data, int width, int height) {
+    for (int i = 0; i < width * height; ++i) {
+        unsigned char temp = data[i * 4];       // B
+        data[i * 4] = data[i * 4 + 2];          // R
+        data[i * 4 + 2] = temp;                 // G stays the same
+    }
+}
+
+// 32비트 BMP 파일 로드 함수
+unsigned char* loadBMP32(const char* filename, int& width, int& height) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) {
+        std::cerr << "ERROR: BMP 파일을 열 수 없습니다: " << filename << std::endl;
+        return nullptr;
+    }
+
+    // BMP 파일 헤더 읽기
+    unsigned char header[54];
+    file.read(reinterpret_cast<char*>(header), 54);
+
+    // BMP 파일인지 확인
+    if (header[0] != 'B' || header[1] != 'M') {
+        std::cerr << "ERROR: BMP 파일 형식이 아닙니다." << std::endl;
+        return nullptr;
+    }
+
+    // 이미지 크기 읽기
+    width = *(int*)&header[18];
+    height = *(int*)&header[22];
+
+    int imageSize = 4 * width * height; // RGBA 데이터 크기
+    unsigned char* data = new unsigned char[imageSize];
+
+    // 이미지 데이터 읽기
+    file.seekg(54, std::ios::beg);
+    file.read(reinterpret_cast<char*>(data), imageSize);
+    file.close();
+
+    // BMP 이미지는 아래에서 위로 저장되므로 뒤집기
+    unsigned char* flippedData = new unsigned char[imageSize];
+    for (int y = 0; y < height; ++y) {
+        memcpy(flippedData + (height - y - 1) * width * 4, data + y * width * 4, width * 4);
+    }
+
+    // 색상 순서 변환
+    convertBGRAToRGBA(flippedData, width, height);
+
+    delete[] data;
+    return flippedData;
+}
+
+// 초기화 함수
+void init() {
+    // BMP 파일 로드
+    imageData = loadBMP32("C:\\Projects\\CG_Practice\\images\\wall.bmp", width, height);
+    if (!imageData) {
+        std::cerr << "ERROR: BMP 파일 로드 실패" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    GLuint textureID;
+    glEnable(GL_TEXTURE_2D);
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    // 텍스처 데이터 설정
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
+
+    // 텍스처 필터링 옵션 설정
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    delete[] imageData;
+}
+
+// 사각형 그리기
+void drawBox() {
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 1.0f); glVertex2f(-0.5f, -0.5f);
+    glTexCoord2f(0.0f, 0.0f); glVertex2f(-0.5f, 0.5f);
+    glTexCoord2f(1.0f, 0.0f); glVertex2f(0.5f, 0.5f);
+    glTexCoord2f(1.0f, 1.0f); glVertex2f(0.5f, -0.5f);
+    glEnd();
+}
+
+// 디스플레이 콜백 함수
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawBox();
+    glutSwapBuffers();
+}
+
+// 메인 함수
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
+    glutInitWindowSize(800, 600);
+    glutCreateWindow("Simple 32-bit BMP Texture");
+
+    init();
+    glutDisplayFunc(display);
+    glutMainLoop();
+
+    return 0;
+}
